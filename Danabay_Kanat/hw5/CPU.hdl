@@ -32,45 +32,34 @@ CHIP CPU {
         pc[15];          // address of next instruction
 
     PARTS:
-    Not(in=instruction[15],out=notOp);
-    Mux16(a=aluOut,b=instruction,sel=notOp,out=entryMuxOut);
-
-    Or(a=notOp,b=instruction[5],out=intoA);
-    ARegister(in=entryMuxOut,load=intoA,out=A,out[0..14]=addressM);
-
-    And(a=instruction[15],b=instruction[12],out=AMSwitch);
-    Mux16(a=A,b=inM,sel=AMSwitch,out=AM);
-
-    And(a=instruction[15],b=instruction[4],out=intoD);
-    DRegister(in=aluOut,load=intoD,out=D);
-
-    ALU(x=D,y=AM,out=aluOut,out=outM,
-        zx=instruction[11],
-        nx=instruction[10],
-        zy=instruction[9],
-        ny=instruction[8],
-        f=instruction[7],
-        no=instruction[6],
-
-        zr=zrOut,
-        ng=ngOut
-    );
-
-    And(a=instruction[15],b=instruction[3],out=writeM);
-
-    Not(in=ngOut,out=pos);
-    Not(in=zrOut,out=nzr);
-    And(a=instruction[15],b=instruction[0],out=jgt);
-    And(a=pos,b=nzr,out=posnzr);
-    And(a=jgt,b=posnzr,out=ld1);
-
-    And(a=instruction[15],b=instruction[1],out=jeq);
-    And(a=jeq,b=zrOut,out=ld2);
-
-    And(a=instruction[15],b=instruction[2],out=jlt);
-    And(a=jlt,b=ngOut,out=ld3);
-
-    Or(a=ld1,b=ld2,out=ldt);
-    Or(a=ld3, b=ldt, out=ld);
-
-    PC(in=A,load=ld,inc=true,reset=reset,out[0..14]=pc);}
+    Not(in=instruction[15], out=isAinstruction);
+    And(a=instruction[5], b=instruction[15], out=loadAfromALU);
+    Or(a=isAinstruction, b=loadAfromALU, out=loadA);
+    Mux16(a=aluOut, b=instruction, sel=isAinstruction, out=Ain);
+    ARegister(in=Ain, load=loadA, out=Areg, out[0..14]=addressM);
+    And(a=instruction[4], b=instruction[15], out=loadD);
+    DRegister(in=aluOut, load=loadD, out=Dreg);
+    Mux16(a=Areg, b=inM, sel=instruction[12], out=aluY);
+    ALU(x=Dreg, y=aluY,
+        zx=instruction[11], nx=instruction[10],
+        zy=instruction[9], ny=instruction[8],
+        f=instruction[7],  no=instruction[6],
+        out=aluOut, zr=zr, ng=ng);
+    And(a=instruction[3], b=instruction[15], out=writeM);
+    Mux16(a=aluOut, b=aluOut, sel=false, out=outM);
+    Or(a=zr, b=ng, out=notGT);
+    Not(in=zr, out=notZR);
+    Not(in=ng, out=notNG);
+    And(a=notZR, b=notNG, out=isGT); 
+    And(a=ng, b=true, out=isLT);     
+    And(a=notZR, b=true, out=isNE);  
+    Or(a=zr, b=isLT, out=isLE);     
+    Or(a=zr, b=isGT, out=isGE);     
+    And(a=instruction[0], b=isGT, out=jgt);
+    And(a=instruction[1], b=zr,   out=jeq);
+    And(a=instruction[2], b=isLT, out=jlt);
+    Or(a=jgt, b=jeq, out=tmp1);
+    Or(a=tmp1, b=jlt, out=jumpIfTrue);
+    And(a=jumpIfTrue, b=instruction[15], out=jump);
+    PC(in=Areg, load=jump, inc=true, reset=reset, out[0..14]=pc);
+}
