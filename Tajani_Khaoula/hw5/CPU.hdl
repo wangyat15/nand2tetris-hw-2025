@@ -8,21 +8,21 @@ CHIP CPU {
     OUT outM[16], writeM, addressM[15], pc[15];
 
     PARTS:
-    Not(in=instruction[15], out=isAInstr);
-    Not(in=isAInstr, out=isCInstr);
+    Not(in=instruction[15], out=isA);
+    Not(in=isA, out=isC);
 
-    And(a=isCInstr, b=instruction[5], out=loadA);
-    And(a=isCInstr, b=instruction[4], out=loadD);
-    And(a=isCInstr, b=instruction[3], out=writeM);
+    And(a=isC, b=instruction[5], out=loadA);
+    And(a=isC, b=instruction[4], out=loadD);
+    And(a=isC, b=instruction[3], out=writeM);
 
-    Mux16(a=instruction, b=aluOut, sel=isCInstr, out=aIn);
-    ARegister(in=aIn, load=loadA, out=aOut, out[0..14]=addressM);
+    Mux16(a=instruction, b=aluOut, sel=isC, out=aInput);
+    ARegister(in=aInput, load=loadA, out=aOut, out[0..14]=addressM);
 
     DRegister(in=aluOut, load=loadD, out=dOut);
 
-    Mux16(a=aOut, b=inM, sel=instruction[12], out=y);
+    Mux16(a=aOut, b=inM, sel=instruction[12], out=yInput);
 
-    ALU(x=dOut, y=y,
+    ALU(x=dOut, y=yInput,
         zx=instruction[11], nx=instruction[10],
         zy=instruction[9],  ny=instruction[8],
         f=instruction[7],   no=instruction[6],
@@ -30,14 +30,14 @@ CHIP CPU {
 
     outM=aluOut;
 
-    And(a=instruction[0], b=zr, out=jEq);
-    And(a=instruction[1], b=ng, out=jLt);
+    And(a=instruction[0], b=zr, out=jeq);
+    And(a=instruction[1], b=ng, out=jlt);
     Not(in=zr, out=notZr);
     Not(in=ng, out=notNg);
-    And(a=instruction[2], b=notZr, out=jGt);
-    Or(a=jEq, b=jLt, out=cond1);
-    Or(a=cond1, b=jGt, out=jump);
-    And(a=isCInstr, b=jump, out=pcLoad);
+    And(a=instruction[2], b=notZr, out=jgt);
+    Or(a=jeq, b=jlt, out=cond1);
+    Or(a=cond1, b=jgt, out=jump);
+    And(a=isC, b=jump, out=pcLoad);
     Not(in=pcLoad, out=pcInc);
 
     PC(in=aOut, load=pcLoad, inc=pcInc, reset=reset, out[0..14]=pc);
