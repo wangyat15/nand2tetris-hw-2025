@@ -25,7 +25,6 @@ CHIP CPU {
     OUT outM[16], writeM, addressM[15], pc[15];
 
     PARTS:
-
     // Control Logic
     Not(in=instruction[15], out=isA);
     And(a=instruction[15], b=instruction[14], out=c1);
@@ -33,26 +32,21 @@ CHIP CPU {
 
     // ALU Control
     And(a=instruction[12], b=isC, out=aMux);
-    Or(a=instruction[11], b=instruction[10], out=czx);
-    Or(a=instruction[9], b=instruction[8], out=cny);
-    Or(a=instruction[7], b=instruction[6], out=cfno);
 
-    // Dest Control
-    Or(a=instruction[5], b=instruction[4], out=ddest);
-    Or(a=ddest, b=instruction[3], out=dest);
+    // Dest Control (Corrected A register load logic)
+    And(a=isC, b=instruction[3], out=AloadC);  // destA (bit 3)
+    Or(a=isA, b=AloadC, out=ALoad);            // Combined load signal
 
     // Jump Control
     Or(a=instruction[2], b=instruction[1], out=jpart);
     Or(a=jpart, b=instruction[0], out=jump);
 
-    // A Register
+    // A Register (Fixed load signal)
     Mux16(a=ALUout, b=instruction, sel=isA, out=AIn);
-    Or(a=isA, b=instruction[5], out=Aload);
-    And(a=Aload, b=isC, out=ALoad);
     ARegister(in=AIn, load=ALoad, out=AOut);
 
     // D Register
-    And(a=instruction[4], b=isC, out=DLoad);
+    And(a=isC, b=instruction[4], out=DLoad);  // destD (bit 4)
     DRegister(in=ALUout, load=DLoad, out=DOut);
 
     // ALU Muxes
@@ -72,32 +66,27 @@ CHIP CPU {
     );
 
     // Outputs
-    And(a=instruction[3], b=isC, out=writeM);
+    And(a=isC, b=instruction[5], out=writeM);  // destM (bit 5)
     Mux16(a=ALUout, b=ALUout, sel=false, out=outM);
-    // AddressM gets lower 15 bits of A register
     Mux16(a=AOut, b=AOut, sel=false, out[0..14]=addressM, out[15]=unusedA);
 
-        // PC Logic
+    // PC Logic (Corrected)
     Not(in=ng, out=pos);
     Not(in=zr, out=ne);
     And(a=pos, b=ne, out=gt);
-    And(a=instruction[2], b=ng, out=jlt);
-    And(a=instruction[1], b=zr, out=jeq);
-    And(a=instruction[0], b=gt, out=jgt);
+    
+    And(a=instruction[2], b=ng, out=jlt);   // JLT
+    And(a=instruction[1], b=zr, out=jeq);   // JEQ
+    And(a=instruction[0], b=gt, out=jgt);   // JGT
+    
     Or(a=jlt, b=jeq, out=jor);
     Or(a=jor, b=jgt, out=jcond);
     And(a=jcond, b=isC, out=pcJump);
 
-    // Program Counter Register (16-bit)
+    // Program counter implementation
     Register(in=pcIn, load=true, out=pcReg);
-    
-    // Connect 15-bit pc output
     Mux16(a=pcReg, b=pcReg, sel=false, out[0..14]=pc, out[15]=unusedPC);
-    
-    // Increment full 16-bit counter
     Inc16(in=pcReg, out=pcInc);
-    
-    // Next PC selection
     Mux16(a=pcInc, b=AOut, sel=pcJump, out=pcNext);
     Mux16(a=pcNext, b=false, sel=reset, out=pcIn);
 }
