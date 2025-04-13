@@ -42,4 +42,3 @@ CHIP CPU {
 
     PC(in=aOut, load=pcLoad, inc=pcInc, reset=reset, out[0..14]=pc);
 }
-
