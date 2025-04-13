@@ -1,0 +1,21 @@
+CHIP Memory {
+    IN in[16], load, address[15];
+    OUT out[16];
+
+    PARTS:
+    Not(in=address[13], out=n13);
+    Not(in=address[14], out=n14);
+
+    And(a=n13, b=n14, out=ramFlag);
+    And(a=n13, b=address[14], out=screenFlag);
+    And(a=address[13], b=address[14], out=keyboardFlag);
+
+    RAM16K(in=in, load=load, address=address[0..13], out=ramOut);
+    Screen(in=in, load=load, address=address[0..12], out=screenOut);
+    Keyboard(out=keyboardOut);
+
+    Mux16(a=ramOut, b=screenOut, sel=address[14], out=ramScreenOut);
+    Mux16(a=ramScreenOut, b=keyboardOut, sel=address[13], out=out);
+}
+
+
