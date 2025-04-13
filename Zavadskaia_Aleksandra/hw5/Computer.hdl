@@ -16,7 +16,6 @@
 CHIP Computer {
 
     IN reset;
-
     PARTS:
     ROM32K(address=pc, out=instr);
     CPU(inM=memOut, instruction=instr, reset=reset,
