@@ -33,8 +33,8 @@ CHIP CPU {
     // ALU Control
     And(a=instruction[12], b=isC, out=aMux);
 
-    // Dest Control (Corrected A register load logic)
-    And(a=isC, b=instruction[3], out=AloadC);  // destA (bit 3)
+    // Dest Control (Corrected bit indices)
+    And(a=isC, b=instruction[5], out=AloadC);  // destA (bit 5)
     Or(a=isA, b=AloadC, out=ALoad);            // Combined load signal
 
     // Jump Control
@@ -45,7 +45,7 @@ CHIP CPU {
     Mux16(a=ALUout, b=instruction, sel=isA, out=AIn);
     ARegister(in=AIn, load=ALoad, out=AOut);
 
-    // D Register
+    // D Register (Corrected)
     And(a=isC, b=instruction[4], out=DLoad);  // destD (bit 4)
     DRegister(in=ALUout, load=DLoad, out=DOut);
 
@@ -65,12 +65,12 @@ CHIP CPU {
         ng=ng
     );
 
-    // Outputs
-    And(a=isC, b=instruction[5], out=writeM);  // destM (bit 5)
+    // Outputs (Critical Fix Here)
+    And(a=isC, b=instruction[3], out=writeM);  // destM (bit 3)
     Mux16(a=ALUout, b=ALUout, sel=false, out=outM);
     Mux16(a=AOut, b=AOut, sel=false, out[0..14]=addressM, out[15]=unusedA);
 
-    // PC Logic (Corrected)
+    // PC Logic
     Not(in=ng, out=pos);
     Not(in=zr, out=ne);
     And(a=pos, b=ne, out=gt);
