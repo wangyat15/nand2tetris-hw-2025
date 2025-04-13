@@ -32,37 +32,51 @@ CHIP CPU {
         pc[15];          // address of next instruction
 
     PARTS:
-	Mux16(a=aRegOut, b=inM, sel=instruction[12], out=aluY);
-    ALU(x=dRegOut, y=aluY,
-        zx=instruction[11], nx=instruction[10],
-        zy=instruction[9],  ny=instruction[8],
-        f=instruction[7],   no=instruction[6],
-        out=aluOut, zr=zrFlag, ng=ngFlag);
-    
-    //A-register logic
-    ARegister(in=aInput, load=aLoad, out=aRegOut);
-    Mux16(a=instruction, b=aluOut, sel=instruction[15], out=aInput);
-    Or(a=flagA, b=instruction[5], out=aLoad);
-    Not(in=instruction[15], out=flagA);
+    Not(in=instruction[15], out=isInstrA);
+    Not(in=isInstrA, out=isInstrC);
 
-    //D-register logic
-    And(a=instruction[4], b=instruction[15], out=dLoad);
-    DRegister(in=aluOut, load=dLoad, out=dRegOut);
+    And(a=true, b=instruction[3], out=flagM);
+    And(a=true, b=instruction[4], out=flagD);
+    And(a=true, b=instruction[5], out=flagA);
 
-    //Jump condition logic
-    Or(a=zrFlag, b=ngFlag, out=condA);
-    Not(in=condA, out=condB);
-    And(a=zrFlag, b=instruction[1], out=jmp1);
-    And(a=ngFlag, b=instruction[2], out=jmp2);
-    And(a=condB, b=instruction[0], out=jmp3);
-    Or(a=jmp1, b=jmp2, out=jmp4);
-    Or(a=jmp4, b=jmp3, out=jmpEn);
-    And(a=instruction[15], b=jmpEn, out=pcLoad);
+    Mux16(a=aregOut, b=inM, sel=instruction[12], out=aluY);
 
-    //Memory output
-    Or16(a=aluOut, b=false, out=memOut);
-    And(a=instruction[3], b=instruction[15], out=memWrite);
-    Or16(a=aRegOut, b=false, out[0..14]=memAddr);
+    ALU(
+        x=dregOut,
+        y=aluY,
+        zx=instruction[11],
+        nx=instruction[10],
+        zy=instruction[9],
+        ny=instruction[8],
+        f=instruction[7],
+        no=instruction[6],
+        out=aluOut,
+        out=outM,
+        zr=zeroFlag,
+        ng=negFlag
+    );
 
-    PC(in=aRegOut, load=pcLoad, inc=true, reset=reset, out[0..14]=pc);
+    Not(in=zeroFlag, out=notZero);
+    Not(in=negFlag, out=notNeg);
+
+    And(a=isInstrC, b=flagA, out=useALUforA);
+    Or(a=useALUforA, b=isInstrA, out=loadA);
+    Mux16(a=instruction, b=aluOut, sel=useALUforA, out=aInput);
+    ARegister(in=aInput, load=loadA, out[0..14]=addressM, out=aregOut);
+
+    And(a=isInstrC, b=flagD, out=loadD);
+    DRegister(in=aluOut, load=loadD, out=dregOut);
+
+    And(a=isInstrC, b=flagM, out=writeM);
+
+    And(a=notZero, b=notNeg, out=isPositive);
+    And(a=isPositive, b=instruction[0], out=jmpGT);
+    And(a=zeroFlag, b=instruction[1], out=jmpEQ);
+    And(a=negFlag, b=instruction[2], out=jmpLT);
+
+    Or(a=jmpGT, b=jmpEQ, out=tmp1);
+    Or(a=tmp1, b=jmpLT, out=shouldJump);
+    And(a=shouldJump, b=isInstrC, out=jumpNow);
+
+    PC(in=aregOut, load=jumpNow, inc=true, reset=reset, out[0..14]=pc);
 }
