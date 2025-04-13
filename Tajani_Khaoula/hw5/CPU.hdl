@@ -8,37 +8,46 @@ CHIP CPU {
     OUT outM[16], writeM, addressM[15], pc[15];
 
     PARTS:
-    Not(in=instruction[15], out=isAInstruction);
-    Not(in=isAInstruction, out=isCInstruction);
+    // Determine instruction type
+    Not(in=instruction[15], out=isAInstr);
+    Not(in=isAInstr, out=isCInstr);
 
-    ARegister(in=aMuxOut, load=aLoad, out=aOut, out[0..14]=aOut15);
-    DRegister(in=aluOut, load=dLoad, out=dOut);
+    // Load logic for A and D registers
+    And(a=isCInstr, b=instruction[5], out=loadA);
+    And(a=isCInstr, b=instruction[4], out=loadD);
+    And(a=isCInstr, b=instruction[3], out=writeM);
 
-    Mux16(a=instruction, b=aluOut, sel=aMuxSel, out=aMuxOut);
+    // A-register input: instruction (if A-type) or ALU output (if C-type)
+    Mux16(a=instruction, b=aluOut, sel=isCInstr, out=aIn);
+    ARegister(in=aIn, load=loadA, out=aOut, out[0..14]=addressM);
 
-    Mux16(a=aOut, b=inM, sel=instruction[12], out=aluY);
+    // D-register
+    DRegister(in=aluOut, load=loadD, out=dOut);
 
-    ALU(x=dOut, y=aluY,
+    // Select A or M as ALU's y input
+    Mux16(a=aOut, b=inM, sel=instruction[12], out=y);
+
+    // ALU
+    ALU(x=dOut, y=y,
         zx=instruction[11], nx=instruction[10],
-        zy=instruction[9], ny=instruction[8],
-        f=instruction[7], no=instruction[6],
+        zy=instruction[9],  ny=instruction[8],
+        f=instruction[7],   no=instruction[6],
         out=aluOut, zr=zr, ng=ng);
 
-    And(a=isCInstruction, b=instruction[5], out=aLoad);
-    And(a=isCInstruction, b=instruction[4], out=dLoad);
-    And(a=isCInstruction, b=instruction[3], out=writeM);
-
-    Or16(a=false, b=aOut, out[0..14]=addressM);
+    // Output logic
     Or16(a=false, b=aluOut, out=outM);
 
-    Not(in=zr, out=notZR);
-    Not(in=ng, out=notNG);
-    And(a=instruction[0], b=notZR, out=jgt);
-    And(a=instruction[2], b=ng, out=jlt);
-    And(a=instruction[1], b=zr, out=jeq);
-    Or(a=jeq, b=jgt, out=jeqOrJgt);
-    Or(a=jeqOrJgt, b=jlt, out=jump);
-    And(a=isCInstruction, b=jump, out=pcLoad);
+    // Jump logic
+    And(a=instruction[0], b=zr, out=jEq);
+    And(a=instruction[1], b=ng, out=jLt);
+    Not(in=zr, out=notZr);
+    Not(in=ng, out=notNg);
+    And(a=instruction[2], b=notZr, out=jGt);
+    Or(a=jEq, b=jLt, out=cond1);
+    Or(a=cond1, b=jGt, out=jump);
+    And(a=isCInstr, b=jump, out=pcLoad);
+    Not(in=pcLoad, out=pcInc);
 
-    PC(in=aOut, load=pcLoad, inc=true, reset=reset, out=pc);
+    // Program counter
+    PC(in=aOut, load=pcLoad, inc=pcInc, reset=reset, out=pc);
 }
