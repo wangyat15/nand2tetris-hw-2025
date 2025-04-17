@@ -36,53 +36,36 @@ CHIP CPU {
 	Mux16(a= instruction, b= ALUout, sel= instruction[15], out= toAreg);
     
     And(a=instruction[15], b=instruction[5], out=loadAC);
-    Not(in= instruction[15], out= N15);
-    Or(a=N15, b=loadAC, out=Ayes); 
+    Not(in= instruction[15], out= isA);
+    Or(a=isA, b=loadAC, out=Ayes); 
+    ARegister(in= toAreg, load= Ayes, out= Aout, out[0..14]=addressM);
 
     //Or(a= instruction[15], b= instruction[5], out= Ayes);
     And(a= instruction[15], b= instruction[3], out= WritetoM);
     Or(a= WritetoM, b= false, out= writeM);
-    ARegister(in= toAreg, load= Ayes, out= Aout, out[0..14]=addressM);
 
-    //And(a= instruction[15], b= instruction[12], out= toALU);
+    And(a= instruction[15], b= instruction[12], out= AMtoALU);
 
-    Mux16(a= Aout, b= inM, sel= instruction[12], out= AorM);
-    ALU(x= Dout, y= AorM, zx= instruction[11], nx= instruction[10], zy= instruction[9], ny= instruction[8], f= instruction[7], no= instruction[6], out= ALUout,out=outM, zr= zr, ng= ng);
-    DRegister(in= ALUout, load= instruction[4], out= Dout);
-    
-    //Memory(in= ALUout, load= WritetoM, address= addressMA, out= outM);
+    Mux16(a= Aout, b= inM, sel= /*instruction[12]*/AMtoALU, out= AorM);
     PC(in= Aout, load= loadpc, inc= true, reset= reset, out[0..14]= pc);
-
+    And(a= instruction[15], b= instruction[4], out= loadD);
+    DRegister(in= ALUout, load= loadD, out= Dout);
+    ALU(x= Dout, y= AorM, zx= instruction[11], nx= instruction[10], zy= instruction[9], ny= instruction[8], f= instruction[7], no= instruction[6], out= ALUout,out=outM, zr= zr, ng= ng);
+    
+    
     //Prepare
-
     Not(in= zr, out= nzr);
     Not(in= ng, out= nng);
-    //JGT
-    And(a= nzr, b= nng, out= gt);
-    And(a= instruction[0], b= gt, out= JGT);
-    //JEQ
-    And(a= instruction[1], b= zr, out= JEQ);
-    //JGE
-    And(a= instruction[0], b= instruction[1], out= ge);
-    And(a= ge, b= nng, out= JGE);
-    //JLT
-    And(a= instruction[2], b= ng, out= JLT);
-    //JNE
-    And(a= instruction[0], b= instruction[2], out= ne);
-    And(a= ne, b= nzr, out= JNE);
-    //JLE
-    And(a= instruction[1], b= instruction[2], out= le);
-    Or(a= zr, b= ng, out= zrORng);
-    And(a= le, b= zrORng, out= JLE);
-    //JMP
-    And(a= instruction[0], b= instruction[1], out= mp);
-    And(a= mp, b= instruction[2], out= JMP);
-    Or(a= JGT, b= JEQ, out= J1);
-    Or(a= J1, b= JGE, out= J2);
-    Or(a= J2, b= JLT, out= J3);
-    Or(a= J3, b= JNE, out= J4);
-    Or(a= J4, b= JLE, out= J6);
-    Or(a= J6, b= JMP, out= JMPorCond);
 
-    And(a= instruction[15], b= JMPorCond, out= loadpc);
+    //And(a= instruction[15], b= JMPorCond, out= loadpc);
+    And(a= nzr, b= nng, out= JG);
+    And(a= instruction[0], b= JG, out= JGT);
+    And(a= instruction[1], b= zr, out= JEQ);
+    And(a= instruction[2], b= ng, out= JLT);
+
+    Or(a= JGT, b= JEQ, out= tmp1);
+    Or(a= tmp1, b= JLT, out= JMPcond);
+    And(a= instruction[15], b= JMPcond, out= loadpc);
+
+    
 }
